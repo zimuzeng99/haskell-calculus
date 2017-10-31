@@ -10,7 +10,7 @@ instance Show UnOp where
  show Cos = "cos"
  show Sin = "sin"
  show Log = "log"
-
+--adfsadfasdfsafsafd
 data BinOp = Add | Mul | Div
            deriving (Eq, Ord)
 instance Show BinOp where
