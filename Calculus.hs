@@ -1,34 +1,90 @@
 module Calculus where
 
 import Data.Maybe
+import Data.Char
 
 data UnOp = Neg | Sin | Cos | Log
-          deriving (Eq, Ord, Show)
+          deriving (Eq, Ord)
+instance Show UnOp where
+ show Neg = "-"
+ show Cos = "cos"
+ show Sin = "sin"
+ show Log = "log"
 
 data BinOp = Add | Mul | Div
-           deriving (Eq, Ord, Show)
+           deriving (Eq, Ord)
+instance Show BinOp where
+  show Add = "+"
+  show Mul = "*"
+  show Div = "/"
 
 data Exp = Val Double | Id String | UnApp UnOp Exp | BinApp BinOp Exp Exp
          deriving (Eq, Ord, Show)
 
 type Env = [(String, Double)]
 
+unOpMap :: [(UnOp, Double -> Double)]
+binOpMap :: [(BinOp, Double -> Double -> Double)]
 
+unOpMap = [(Neg, (*) (-1)), (Sin, sin), (Cos, cos), (Log, log)]
+binOpMap = [(Add, (+)), (Mul, (*)), (Div, (/))]
 
 lookUp :: Eq a => a -> [(a, b)] -> b
-lookUp = error "TODO implement lookUp"
+lookUp search table
+ = fromJust (lookup search table)
 
 eval :: Exp -> Env -> Double
-eval = error "TODO: implement eval"
+eval (Val val) _ = val
+eval (Id var) table = lookUp var table
+eval (UnApp op exp) table
+ = (lookUp op unOpMap) (eval exp table)
+eval (BinApp op exp exp') table
+ = (lookUp op binOpMap) (eval exp table) (eval exp' table)
 
 diff :: Exp -> String -> Exp
-diff = error "TODO: implement diff"
+diff (Val val) _ = Val 0
+diff (Id var) var'
+ | var == var' = Val 1
+ | otherwise = Val 0
+diff (BinApp op exp exp') var
+ | op == Add = BinApp Add (diff exp var) (diff exp' var)
+ | op == Mul = BinApp Add uv' u'v
+ | op == Div = BinApp Div (BinApp Add u'v (UnApp Neg uv')) (BinApp Mul exp' exp')
+   where
+    uv' = (BinApp Mul exp (diff exp' var))
+    u'v = (BinApp Mul (diff exp var) exp')
+
+diff (UnApp op exp) var
+ | op == Neg = UnApp Neg (diff exp var)
+ | op == Sin = BinApp Mul (UnApp Cos exp) (diff exp var)
+ | op == Cos = UnApp Neg (BinApp Mul (UnApp Sin exp) (diff exp var))
+ | op == Log = BinApp Div (diff exp var) exp
 
 maclaurin :: Exp -> Double -> Int -> Double
-maclaurin = error "TODO: implement maclaurin"
+maclaurin exp val n
+ = sum (map (maclaurinEval val) (zipWith3 combine3 differentials factorials powers))
+   where
+    factorials = map fromIntegral (scanl (*) 1 [1..(n-1)])
+    differentials = take n (iterate ((flip diff) "x") exp)
+    powers = [0..(n-1)]
+
+    combine3 :: a -> b -> c -> (a, b, c)
+    combine3 e1 e2 e3 = (e1, e2, e3)
+
+    maclaurinEval :: Double -> (Exp, Double, Int) -> Double
+    maclaurinEval val (exp, fact, pow)
+     = eval exp [("x", 0)] / fact * (val ^ pow)
 
 showExp :: Exp -> String
-showExp = error "TODO: implement showExp"
+showExp (Val val) = show val
+showExp (Id var) = var
+showExp (UnApp op exp) = show op ++ "(" ++ showExp exp ++ ")"
+showExp (BinApp op exp exp') = "(" ++ showExp exp ++ show op ++ showExp exp' ++ ")"
+
+isInt :: Double -> Bool
+isInt n
+ | n < 1 = n == 0
+ | otherwise = isInt (n - 1)
 
 ---------------------------------------------------------------------------
 -- Test cases from the spec.
